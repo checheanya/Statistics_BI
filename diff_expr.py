@@ -7,8 +7,8 @@ import scipy.stats as st
 
 
 def demonstrate_clt(expressions):
-    sample_size = len(expressions) // 5  # changable
-    n_samples = 1000  # changable
+    sample_size = len(expressions) // 5  # changeable
+    n_samples = 1000  # changeable
     means_list = []
     for i in range(n_samples):
         sample = np.random.choice(expressions, sample_size)
@@ -43,7 +43,7 @@ def plots(de_first, de_second, gene):
 
 
 def stat_ci(data, gene, alpha=0.95):
-    # NK клетки
+    # NK cells
     ci = st.t.interval(alpha,
                        df=len(data[gene]) - 1,
                        loc=np.mean(data[gene]),
@@ -60,23 +60,19 @@ def check_intervals_intersect(first_ci, second_ci):
         return False
 
 
-def check_dge_with_ci(first_table, second_table):
-    # dge - differential gene expression
-    common_genes = set(first_table.columns).intersection(set(second_table))
-    ci_test_results = dict()
+def check_dge_with_ci(first_table, second_table, common_genes):
+    ci_test_results = []
     for gene in common_genes:
         # if intervals intersect --> difference is not significant
         if check_intervals_intersect(stat_ci(first_table, gene), stat_ci(second_table, gene)):
-            ci_test_results[gene] = False
+            ci_test_results.append(False)
         else:
-            ci_test_results[gene] = True
+            ci_test_results.append(True)
     return ci_test_results
 
 
-def check_dge_with_ztest(first_table, second_table):
-    # dge - differential gene expression
+def check_dge_with_ztest(first_table, second_table, common_genes):
     alpha = 0.05
-    common_genes = set(first_table.columns).intersection(set(second_table))
     z_test_results = []
     p_values = []
     for gene in common_genes:
@@ -101,23 +97,29 @@ if __name__ == '__main__':
         second_expr.fillna(second_expr, inplace=True)
 
     # plotting
-    to_plot_bool = input("Do you want to view a plot histograms and a plot for means of some genes? (y/n) ")
+    to_plot_bool = input("Do you want to view histograms and plots for means of any genes? (y/n) ")
     if to_plot_bool == "y":
         genes = input("Enter names of the genes (a, b, c): ").split(", ")
         for gene in genes:
             plots(first_expr, second_expr, gene)
         print("Check the current folder for the plots!")
 
+    # finding the common genes for the future analysis
+    common_genes = sorted(list(set(
+        first_expr.columns).intersection(set(second_expr.columns))))
+
     # confidencse intervals check
-    ci_test_results = check_dge_with_ci(first_expr, second_expr)
+    ci_test_results = check_dge_with_ci(first_expr, second_expr, common_genes)
 
     # z-test check
-    z_test_results, z_test_p_values = check_dge_with_ztest(first_expr, second_expr)
+    z_test_results, z_test_p_values = check_dge_with_ztest(
+        first_expr, second_expr, common_genes)
 
     # difference of means
-    mean_diff = first_expr.mean(axis=0) - second_expr.mean(axis=0)
+    mean_diff = first_expr[common_genes].mean(axis=0) - second_expr[common_genes].mean(axis=0)
 
     results = {
+        "gene_name": common_genes,
         "ci_test_results": ci_test_results,
         "z_test_results": z_test_results,
         "z_test_p_values": z_test_p_values,
